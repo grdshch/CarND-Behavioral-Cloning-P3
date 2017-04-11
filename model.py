@@ -2,12 +2,12 @@ import csv
 import cv2
 import numpy as np
 import os
-import sys
 
-
+from keras.models import Sequential
+from keras.layers import Flatten, Dense, Lambda
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
-DATA = os.path.join(ROOT, 'train')
+DATA = os.path.join(ROOT, 'data')
 
 if __name__ == '__main__':
     with open(os.path.join(DATA, 'driving_log.csv')) as csvfile:
@@ -24,10 +24,8 @@ if __name__ == '__main__':
     print(X_train.shape)
     y_train = np.array(measurements)
 
-    from keras.models import Sequential
-    from keras.layers import Flatten, Dense
-
     model = Sequential()
+    model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320, 3)))
     model.add(Flatten(input_shape=(160, 320, 3)))
     model.add(Dense(1))
 
