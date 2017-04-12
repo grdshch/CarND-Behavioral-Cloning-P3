@@ -2,9 +2,11 @@ import csv
 import cv2
 import numpy as np
 import os
+import sys
 
 from keras.models import Sequential
-from keras.layers import Flatten, Dense, Lambda
+from keras.layers import Flatten, Dense, Lambda, Conv2D, MaxPooling2D, Cropping2D, Dropout
+from keras.utils import plot_model
 
 import sklearn.utils
 from sklearn.model_selection import train_test_split
@@ -12,10 +14,12 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
-DATA = os.path.join(ROOT, 'data')
+DATA = os.path.join(ROOT, 'data_both')
+
+BATCH_SIZE = 32
 
 
-def generator(samples, batch_size=32):
+def generator(samples, batch_size=BATCH_SIZE):
     num_samples = len(samples)
     while 1:  # Loop forever so the generator never terminates
         sklearn.utils.shuffle(samples)
@@ -43,23 +47,34 @@ if __name__ == '__main__':
 
     train_samples, validation_samples = train_test_split(samples, test_size=0.2)
 
-    train_generator = generator(train_samples, batch_size=32)
-    validation_generator = generator(validation_samples, batch_size=32)
-
-    # X_train = np.array(images)
-    # print(X_train.shape)
-    # y_train = np.array(measurements)
+    train_generator = generator(train_samples, batch_size=BATCH_SIZE)
+    validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
     model = Sequential()
-    model.add(Lambda(lambda x: (x / 255.0) - 0.5, input_shape=(160, 320, 3)))
-    model.add(Flatten(input_shape=(160, 320, 3)))
+    model.add(Cropping2D(cropping=((70, 0), (0, 0)), input_shape=(160, 320, 3)))
+    model.add(Lambda(lambda x: (x / 255.0) - 0.5, ))
+    model.add(Conv2D(filters=6, kernel_size=5, strides=(1, 1), padding='valid', activation='relu'))
+    model.add(MaxPooling2D())
+    model.add(Conv2D(filters=16, kernel_size=5, strides=(1, 1), padding='valid', activation='relu'))
+    model.add(MaxPooling2D())
+    model.add(Conv2D(filters=32, kernel_size=5, strides=(1, 1), padding='valid', activation='relu'))
+    model.add(MaxPooling2D())
+    model.add(Flatten())
+    model.add(Dense(100))
+    model.add(Dense(50))
+    model.add(Dense(10))
     model.add(Dense(1))
 
     model.compile(loss='mse', optimizer='adam')
-    # model.fit(X_train, y_train, validation_split=0.2, shuffle=True, epochs=10)
-    history_object = model.fit_generator(train_generator, steps_per_epoch=len(train_samples),
+
+
+    plot_model(model, to_file='model.png', show_shapes=True)
+
+    history_object = model.fit_generator(train_generator,
+                                         steps_per_epoch=len(train_samples) / BATCH_SIZE,
                                          validation_data=validation_generator,
-                                         nb_val_samples=len(validation_samples), nb_epoch=5)
+                                         validation_steps=len(validation_samples) / BATCH_SIZE,
+                                         epochs=10)
     print(history_object.history.keys())
 
     ### plot the training and validation loss for each epoch
