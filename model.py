@@ -34,6 +34,8 @@ def generator(samples, batch_size=BATCH_SIZE):
                 center_angle = float(batch_sample[3])
                 images.append(center_image)
                 angles.append(center_angle)
+                images.append(cv2.flip(center_image, 1))
+                angles.append(-center_angle)
 
             # trim image to only see section with road
             X_train = np.array(images)
@@ -67,14 +69,13 @@ if __name__ == '__main__':
 
     model.compile(loss='mse', optimizer='adam')
 
-
     plot_model(model, to_file='model.png', show_shapes=True)
 
     history_object = model.fit_generator(train_generator,
                                          steps_per_epoch=len(train_samples) / BATCH_SIZE,
                                          validation_data=validation_generator,
                                          validation_steps=len(validation_samples) / BATCH_SIZE,
-                                         epochs=10)
+                                         epochs=5)
     print(history_object.history.keys())
 
     ### plot the training and validation loss for each epoch
