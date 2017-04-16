@@ -2,7 +2,7 @@ import csv
 import cv2
 import numpy as np
 import os
-import sys
+import random
 
 from keras.models import Sequential
 from keras.layers import Flatten, Dense, Lambda, Conv2D, MaxPooling2D, Cropping2D, Dropout
@@ -14,7 +14,7 @@ from sklearn.model_selection import train_test_split
 import matplotlib.pyplot as plt
 
 ROOT = os.path.dirname(os.path.realpath(__file__))
-DATA = os.path.join(ROOT, 'data_both')
+DATA = os.path.join(ROOT, 'train_15a')
 
 BATCH_SIZE = 32
 
@@ -34,8 +34,30 @@ def generator(samples, batch_size=BATCH_SIZE):
                 center_angle = float(batch_sample[3])
                 images.append(center_image)
                 angles.append(center_angle)
+
+                # adding flipped image with opposite steering angle
                 images.append(cv2.flip(center_image, 1))
                 angles.append(-center_angle)
+
+                # adding image from left camera
+                if random.random() < .25:
+                    source = os.path.join(DATA, batch_sample[1])
+                    if not batch_sample[1] or not os.path.exists(source):
+                        continue
+                    left_image = cv2.imread(source)
+                    left_angle = float(batch_sample[3])
+                    images.append(left_image)
+                    angles.append(left_angle)
+
+                # adding image from right camera
+                if random.random() < .25:
+                    source = os.path.join(DATA, batch_sample[2])
+                    if not batch_sample[2] or not os.path.exists(source):
+                        continue
+                    right_image = cv2.imread(source)
+                    right_angle = float(batch_sample[3])
+                    images.append(right_image)
+                    angles.append(right_angle)
 
             # trim image to only see section with road
             X_train = np.array(images)
@@ -53,7 +75,7 @@ if __name__ == '__main__':
     validation_generator = generator(validation_samples, batch_size=BATCH_SIZE)
 
     model = Sequential()
-    model.add(Cropping2D(cropping=((70, 0), (0, 0)), input_shape=(160, 320, 3)))
+    model.add(Cropping2D(cropping=((70, 20), (0, 0)), input_shape=(160, 320, 3)))
     model.add(Lambda(lambda x: (x / 255.0) - 0.5, ))
     model.add(Conv2D(filters=6, kernel_size=5, strides=(1, 1), padding='valid', activation='relu'))
     model.add(MaxPooling2D())
@@ -63,6 +85,7 @@ if __name__ == '__main__':
     model.add(MaxPooling2D())
     model.add(Flatten())
     model.add(Dense(100))
+    model.add(Dropout(.5))
     model.add(Dense(50))
     model.add(Dense(10))
     model.add(Dense(1))
@@ -75,8 +98,8 @@ if __name__ == '__main__':
                                          steps_per_epoch=len(train_samples) / BATCH_SIZE,
                                          validation_data=validation_generator,
                                          validation_steps=len(validation_samples) / BATCH_SIZE,
-                                         epochs=5)
-    print(history_object.history.keys())
+                                         epochs=10)
+    model.save('model_aws.h5')
 
     ### plot the training and validation loss for each epoch
     plt.plot(history_object.history['loss'])
@@ -86,5 +109,3 @@ if __name__ == '__main__':
     plt.xlabel('epoch')
     plt.legend(['training set', 'validation set'], loc='upper right')
     plt.show()
-
-    model.save('model.h5')
